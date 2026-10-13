@@ -18,8 +18,8 @@ COPY app ./app
 
 RUN groupadd --system app \
     && useradd --system --gid app --create-home app \
-    && mkdir -p /app/logs \
-    && chown app:app /app/logs
+    && mkdir -p /app/logs /app/data \
+    && chown app:app /app/logs /app/data
 
 ENV PATH="/opt/venv/bin:$PATH"
 

@@ -1,15 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.dependencies import get_user_service
 from app.models.user import UserCreate, UserRead
-from app.repositories.user_repository import UserRepository
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
-user_service = UserService(UserRepository())
-
-
-def get_user_service() -> UserService:
-    return user_service
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     log_file: str = "logs/app.log"
     log_max_bytes: int = 5242880
     log_backup_count: int = 3
+    database_path: str = "data/app.db"
 
     model_config = SettingsConfigDict(
         env_file=".env",

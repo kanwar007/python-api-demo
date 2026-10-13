@@ -17,6 +17,9 @@ build/
 dist/
 *.egg-info/
 logs/*.log
+data/*.db
+data/*.db-shm
+data/*.db-wal
 
 .env
 .env.*

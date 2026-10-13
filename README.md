@@ -1,6 +1,6 @@
 # Python REST API Demo
 
-A small FastAPI starter organized into controller, service, model, and repository layers. It provides create and read endpoints for users and stores data in memory.
+A small FastAPI starter organized into controller, service, model, repository, and database layers. It provides create and read endpoints for users, with records stored in SQLite.
 
 ## Requirements
 
@@ -34,6 +34,7 @@ Settings are loaded by `app.config.settings` from `.env`, with process environme
 | `LOG_FILE` | `logs/app.log` | Log file path |
 | `LOG_MAX_BYTES` | `5242880` | Maximum size of each log file (5 MiB) |
 | `LOG_BACKUP_COUNT` | `3` | Number of rotated log files to retain |
+| `DATABASE_PATH` | `data/app.db` | SQLite database file path |
 
 Read a setting in application code with `from app.config import settings`, then access a property such as `settings.app_env`. The same object is available on requests as `request.app.state.settings`.
 
@@ -59,7 +60,7 @@ Build and run the production image locally:
 
 ```powershell
 docker build -t python-api-demo:local .
-docker run --rm -p 8000:8000 -v python-api-logs:/app/logs python-api-demo:local
+docker run --rm -p 8000:8000 -v python-api-logs:/app/logs -v python-api-data:/app/data python-api-demo:local
 ```
 
 The API is available at `http://127.0.0.1:8000`, and the container health check calls `/health`.
@@ -72,7 +73,7 @@ On a Docker server, pull and run the published image, replacing `your-github-own
 
 ```powershell
 docker pull ghcr.io/your-github-owner/your-repository:latest
-docker run -d --name python-api-demo --restart unless-stopped -p 8000:8000 ghcr.io/your-github-owner/your-repository:latest
+docker run -d --name python-api-demo --restart unless-stopped -p 8000:8000 -v python-api-logs:/app/logs -v python-api-data:/app/data ghcr.io/your-github-owner/your-repository:latest
 ```
 
 For a private GHCR package, authenticate the server with a GitHub token that has `read:packages` permission before pulling. The workflow publishes the image; it does not deploy it to a server automatically.
@@ -83,17 +84,19 @@ For a private GHCR package, authenticate the server with a GitHub token that has
 - `POST /users` creates a user. JSON body: `{"name": "Ada Lovelace", "email": "ada@example.com"}`.
 - `GET /users/{user_id}` returns a user or a `404` response when the ID is not found.
 
-The in-memory data is reset whenever the API process restarts.
+`SQLiteDatabase` stores user records in the file configured by `DATABASE_PATH`. The Docker command mounts `/app/data` in a named volume so records survive container replacement. Services depend on the `UserRepository` protocol, keeping the persistence implementation replaceable if the application later moves to a server database such as PostgreSQL.
 
 ## Project structure
 
 ```text
 app/
   config.py      Environment-backed application settings
+  database.py    SQLite database implementation
   controllers/   HTTP routes
   models/        Request and response models
-  repositories/  In-memory data access
+  repositories/  SQLite data access
   services/      Application logic
+  dependencies.py Repository and service wiring
   main.py        FastAPI application
 tests/           API tests
 pyproject.toml    uv project metadata and runtime/development dependencies

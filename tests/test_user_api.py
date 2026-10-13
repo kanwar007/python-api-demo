@@ -5,19 +5,35 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.controllers.user_controller import get_user_service
+from app.database import SQLiteDatabase
 from app.logging_config import logger
 from app.main import app
-from app.repositories.user_repository import UserRepository
+from app.models.user import UserCreate
+from app.repositories.user_repository import SQLiteUserRepository
 from app.services.user_service import UserService
 
 
 @pytest.fixture
-def client() -> TestClient:
-    service = UserService(UserRepository())
+def client(tmp_path: Path) -> TestClient:
+    database = SQLiteDatabase(str(tmp_path / "api-test.db"))
+    repository = SQLiteUserRepository(database)
+    service = UserService(repository)
     app.dependency_overrides[get_user_service] = lambda: service
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+def test_sqlite_data_persists_after_reopening_database(tmp_path: Path) -> None:
+    database_path = str(tmp_path / "users.db")
+    first_repository = SQLiteUserRepository(SQLiteDatabase(database_path))
+
+    created_user = first_repository.create(
+        UserCreate(name="Ada Lovelace", email="ada@example.com")
+    )
+    reopened_repository = SQLiteUserRepository(SQLiteDatabase(database_path))
+
+    assert reopened_repository.get_by_id(created_user.id) == created_user
 
 
 def test_create_and_get_user(client: TestClient) -> None:
