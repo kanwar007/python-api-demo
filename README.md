@@ -7,16 +7,17 @@ A small FastAPI starter organized into controller, service, model, and repositor
 - Python 3.14 or newer
 - [uv](https://docs.astral.sh/uv/)
 
-The project runtime dependency is declared in `pyproject.toml` and locked in `uv.lock`. `requirements.txt` also lists the API and test dependencies.
+Runtime and development dependencies are declared in `pyproject.toml` and locked in `uv.lock`. The `requirements.txt` file is available for pip-based installs.
 
 ## Setup
 
-From the project root, sync the project dependencies and install the test dependencies:
+From the project root, sync the runtime and test dependencies:
 
 ```powershell
 uv sync
-uv pip install -r requirements.txt
 ```
+
+For a pip-based install instead, use `python -m pip install -r requirements.txt`.
 
 ## Run the API
 
@@ -49,7 +50,7 @@ app/
   services/      Application logic
   main.py        FastAPI application
 tests/           API tests
-pyproject.toml    uv project metadata and runtime dependencies
+pyproject.toml    uv project metadata and runtime/development dependencies
 uv.lock           Locked uv dependencies
 requirements.txt  Runtime and test dependency list
 ```
