@@ -48,6 +48,10 @@ uv run --no-sync fastapi dev app/main.py
 
 The API runs at `http://127.0.0.1:8000`. Interactive documentation is available at `http://127.0.0.1:8000/docs`.
 
+### Debug in VS Code
+
+Select the project's `.venv` Python interpreter, open **Run and Debug**, choose **FastAPI: Debug locally**, and press `F5`. This launches Uvicorn without reload so VS Code breakpoints remain attached, loads `.env`, and sets `DEBUG=true`.
+
 ## Test
 
 ```powershell
@@ -63,7 +67,7 @@ docker build -t python-api-demo:local .
 docker run --rm -p 8000:8000 -v python-api-logs:/app/logs -v python-api-data:/app/data python-api-demo:local
 ```
 
-The API is available at `http://127.0.0.1:8000`, and the container health check calls `/health`.
+The API is available at `http://127.0.0.1:8000`; all application endpoints use the `/api` prefix. The container health check calls `/api/health`.
 
 ## GitHub Actions deployment image
 
@@ -80,9 +84,9 @@ For a private GHCR package, authenticate the server with a GitHub token that has
 
 ## Endpoints
 
-- `GET /health` reports whether the API process is responding.
-- `POST /users` creates a user. JSON body: `{"name": "Ada Lovelace", "email": "ada@example.com"}`.
-- `GET /users/{user_id}` returns a user or a `404` response when the ID is not found.
+- `GET /api/health` reports whether the API process is responding.
+- `POST /api/users` creates a user. JSON body: `{"name": "Ada Lovelace", "email": "ada@example.com"}`.
+- `GET /api/users/{user_id}` returns a user or a `404` response when the ID is not found.
 
 `SQLiteDatabase` stores user records in the file configured by `DATABASE_PATH`. The Docker command mounts `/app/data` in a named volume so records survive container replacement. Services depend on the `UserRepository` protocol, keeping the persistence implementation replaceable if the application later moves to a server database such as PostgreSQL.
 

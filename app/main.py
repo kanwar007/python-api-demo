@@ -10,8 +10,8 @@ from app.logging_config import logger
 
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 app.state.settings = settings
-app.include_router(health_router)
-app.include_router(user_router)
+app.include_router(health_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
 
 
 @app.middleware("http")

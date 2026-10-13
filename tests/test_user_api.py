@@ -38,7 +38,7 @@ def test_sqlite_data_persists_after_reopening_database(tmp_path: Path) -> None:
 
 def test_create_and_get_user(client: TestClient) -> None:
     create_response = client.post(
-        "/users",
+        "/api/users",
         json={"name": "Ada Lovelace", "email": "ada@example.com"},
     )
 
@@ -50,21 +50,21 @@ def test_create_and_get_user(client: TestClient) -> None:
         "email": "ada@example.com",
     }
 
-    get_response = client.get("/users/1")
+    get_response = client.get("/api/users/1")
 
     assert get_response.status_code == 200
     assert get_response.json() == user
 
 
 def test_get_missing_user_returns_404(client: TestClient) -> None:
-    response = client.get("/users/999")
+    response = client.get("/api/users/999")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "User not found"}
 
 
 def test_health_check(client: TestClient) -> None:
-    response = client.get("/health")
+    response = client.get("/api/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
@@ -77,9 +77,9 @@ def test_application_uses_environment_settings(client: TestClient) -> None:
 
 
 def test_requests_are_written_to_log_file(client: TestClient) -> None:
-    response = client.get("/health")
+    response = client.get("/api/health")
     for handler in logger.handlers:
         handler.flush()
 
     assert response.status_code == 200
-    assert "GET /health -> 200" in Path(settings.log_file).read_text(encoding="utf-8")
+    assert "GET /api/health -> 200" in Path(settings.log_file).read_text(encoding="utf-8")
