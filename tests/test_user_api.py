@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from app.config import settings
-from app.controllers.user_controller import get_user_service
+from app.controllers.user_controller import create_user, get_user_service
 from app.database import SQLiteDatabase
 from app.logging_config import logger
 from app.main import app
@@ -59,6 +59,21 @@ def test_sqlite_data_persists_after_reopening_database(tmp_path: Path) -> None:
     reopened_repository = SQLiteUserRepository(SQLiteDatabase(database_path))
 
     assert reopened_repository.get_by_id(created_user.id) == created_user
+
+
+def test_user_controller_creates_user_using_name_field(tmp_path: Path) -> None:
+    repository = SQLiteUserRepository(
+        SQLiteDatabase(str(tmp_path / "controller-test.db"))
+    )
+    service = UserService(repository)
+
+    created_user = create_user(
+        UserCreate(name="Ada Lovelace", email="ada@example.com"),
+        service=service,
+    )
+
+    assert created_user.name == "Ada Lovelace"
+    assert created_user.id == 1
 
 
 def test_create_and_get_user(client: TestClient) -> None:
