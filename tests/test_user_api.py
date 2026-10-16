@@ -1,7 +1,9 @@
 from pathlib import Path
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app.config import settings
 from app.controllers.user_controller import get_user_service
@@ -14,7 +16,14 @@ from app.services.user_service import UserService
 
 
 @pytest.fixture
-def client(tmp_path: Path) -> TestClient:
+def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    monkeypatch.setattr(settings, "auth_username", "test-user")
+    monkeypatch.setattr(settings, "auth_password", SecretStr("test-password"))
+    monkeypatch.setattr(
+        settings,
+        "jwt_secret",
+        SecretStr("test-jwt-secret-with-at-least-32-characters"),
+    )
     database = SQLiteDatabase(str(tmp_path / "api-test.db"))
     repository = SQLiteUserRepository(database)
     service = UserService(repository)
@@ -22,6 +31,22 @@ def client(tmp_path: Path) -> TestClient:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(app_client: TestClient) -> TestClient:
+    token_response = app_client.post(
+        "/api/auth/token",
+        headers={
+            "AUTH_USERNAME": "test-user",
+            "AUTH_PASSWORD": "test-password",
+        },
+    )
+    assert token_response.status_code == 200
+    app_client.headers.update(
+        {"Authorization": f"Bearer {token_response.json()['access_token']}"}
+    )
+    return app_client
 
 
 def test_sqlite_data_persists_after_reopening_database(tmp_path: Path) -> None:
@@ -68,6 +93,54 @@ def test_health_check(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_health_check_does_not_require_token(app_client: TestClient) -> None:
+    response = app_client.get("/api/health")
+
+    assert response.status_code == 200
+
+
+def test_user_routes_require_token(app_client: TestClient) -> None:
+    response = app_client.get("/api/users/1")
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_token_endpoint_rejects_invalid_credentials(app_client: TestClient) -> None:
+    response = app_client.post(
+        "/api/auth/token",
+        headers={
+            "AUTH_USERNAME": "test-user",
+            "AUTH_PASSWORD": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_token_endpoint_requires_authentication_configuration(
+    app_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "auth_username", "")
+
+    response = app_client.post(
+        "/api/auth/token",
+        headers={
+            "AUTH_USERNAME": "test-user",
+            "AUTH_PASSWORD": "test-password",
+        },
+    )
+
+    assert response.status_code == 503
+
+
+def test_token_endpoint_requires_credential_headers(app_client: TestClient) -> None:
+    response = app_client.post("/api/auth/token")
+
+    assert response.status_code == 401
 
 
 def test_application_uses_environment_settings(client: TestClient) -> None:

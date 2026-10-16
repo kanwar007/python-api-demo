@@ -35,8 +35,22 @@ Settings are loaded by `app.config.settings` from `.env`, with process environme
 | `LOG_MAX_BYTES` | `5242880` | Maximum size of each log file (5 MiB) |
 | `LOG_BACKUP_COUNT` | `3` | Number of rotated log files to retain |
 | `DATABASE_PATH` | `data/app.db` | SQLite database file path |
+| `AUTH_USERNAME` | unset | Username allowed to request a token |
+| `AUTH_PASSWORD` | unset | Password allowed to request a token |
+| `JWT_SECRET` | unset | HS256 signing key; use a random value of at least 32 characters |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access-token lifetime |
 
 Read a setting in application code with `from app.config import settings`, then access a property such as `settings.app_env`. The same object is available on requests as `request.app.state.settings`.
+
+### JWT authentication
+
+Add `AUTH_USERNAME`, `AUTH_PASSWORD`, and a private `JWT_SECRET` to your existing `.env` (or use the deployment secret store). The values in `.env.example` are blank intentionally. Generate a key with:
+
+```powershell
+uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Request a token from `POST /api/auth/token` with the `AUTH_USERNAME` and `AUTH_PASSWORD` request headers; leave the request body empty. In Postman, add both under **Headers**. Send the returned token on user API requests as a Bearer token. All `/api` endpoints are protected except `/api/health` and the token-issuing endpoint. Use HTTPS outside local development, since credentials in headers are not encrypted by themselves. Never commit `.env` or use development credentials in production.
 
 The application writes request summaries and unhandled errors to both the console and the rotating log file. Generated logs are ignored by Git. In Docker, logs are written to `/app/logs/app.log`; mount `/app/logs` as a volume to retain them after replacing the container.
 
@@ -64,7 +78,7 @@ Build and run the production image locally:
 
 ```powershell
 docker build -t python-api-demo:local .
-docker run --rm -p 8000:8000 -v python-api-logs:/app/logs -v python-api-data:/app/data python-api-demo:local
+docker run --rm -p 8000:8000 --env-file .env -v python-api-logs:/app/logs -v python-api-data:/app/data python-api-demo:local
 ```
 
 The API is available at `http://127.0.0.1:8000`; all application endpoints use the `/api` prefix. The container health check calls `/api/health`.
@@ -77,16 +91,17 @@ On a Docker server, pull and run the published image, replacing `your-github-own
 
 ```powershell
 docker pull ghcr.io/your-github-owner/your-repository:latest
-docker run -d --name python-api-demo --restart unless-stopped -p 8000:8000 -v python-api-logs:/app/logs -v python-api-data:/app/data ghcr.io/your-github-owner/your-repository:latest
+docker run -d --name python-api-demo --restart unless-stopped -p 8000:8000 --env-file .env -v python-api-logs:/app/logs -v python-api-data:/app/data ghcr.io/your-github-owner/your-repository:latest
 ```
 
 For a private GHCR package, authenticate the server with a GitHub token that has `read:packages` permission before pulling. The workflow publishes the image; it does not deploy it to a server automatically.
 
 ## Endpoints
 
-- `GET /api/health` reports whether the API process is responding.
-- `POST /api/users` creates a user. JSON body: `{"name": "Ada Lovelace", "email": "ada@example.com"}`.
-- `GET /api/users/{user_id}` returns a user or a `404` response when the ID is not found.
+- `GET /api/health` reports whether the API process is responding; no token is required.
+- `POST /api/auth/token` issues a bearer token after validating configured credentials.
+- `POST /api/users` creates a user. JSON body: `{"name": "Ada Lovelace", "email": "ada@example.com}`; requires a bearer token.
+- `GET /api/users/{user_id}` returns a user or a `404` response when the ID is not found; requires a bearer token.
 
 `SQLiteDatabase` stores user records in the file configured by `DATABASE_PATH`. The Docker command mounts `/app/data` in a named volume so records survive container replacement. Services depend on the `UserRepository` protocol, keeping the persistence implementation replaceable if the application later moves to a server database such as PostgreSQL.
 
@@ -96,9 +111,10 @@ For a private GHCR package, authenticate the server with a GitHub token that has
 app/
   config.py      Environment-backed application settings
   database.py    SQLite database implementation
-  controllers/   HTTP routes
-  models/        Request and response models
+  controllers/   Health, auth, and user HTTP routes
+  models/        Auth, request, and response models
   repositories/  SQLite data access
+  security.py    JWT issuance and bearer-token validation
   services/      Application logic
   dependencies.py Repository and service wiring
   main.py        FastAPI application

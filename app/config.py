@@ -1,3 +1,4 @@
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,10 @@ class Settings(BaseSettings):
     log_max_bytes: int = 5242880
     log_backup_count: int = 3
     database_path: str = "data/app.db"
+    auth_username: str = ""
+    auth_password: SecretStr = SecretStr("")
+    jwt_secret: SecretStr = SecretStr("")
+    jwt_access_token_expire_minutes: int = Field(default=30, ge=1)
 
     model_config = SettingsConfigDict(
         env_file=".env",

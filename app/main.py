@@ -1,17 +1,25 @@
 from time import perf_counter
 
-from fastapi import FastAPI, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from starlette.middleware.base import RequestResponseEndpoint
 
 from app.config import settings
+from app.controllers.auth_controller import router as auth_router
 from app.controllers.health_controller import router as health_router
 from app.controllers.user_controller import router as user_router
 from app.logging_config import logger
+from app.security import require_bearer_token
 
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 app.state.settings = settings
+authenticated_api_router = APIRouter(
+	prefix="/api",
+	dependencies=[Depends(require_bearer_token)],
+)
+authenticated_api_router.include_router(user_router)
+app.include_router(authenticated_api_router)
+app.include_router(auth_router, prefix="/api")
 app.include_router(health_router, prefix="/api")
-app.include_router(user_router, prefix="/api")
 
 
 @app.middleware("http")
